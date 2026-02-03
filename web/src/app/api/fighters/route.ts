@@ -94,11 +94,22 @@ export async function GET(request: NextRequest) {
       fighters,
       count: fighters.length,
       network: 'devnet'
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'CDN-Cache-Control': 'no-store',
+        'Vercel-CDN-Cache-Control': 'no-store',
+      }
     })
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch fighters' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store',
+        }
+      }
     )
   }
 }
