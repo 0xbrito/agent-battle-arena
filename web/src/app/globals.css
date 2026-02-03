@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --arena-dark: #0a0a0f;
+  --arena-accent: #ff3e3e;
+  --arena-gold: #ffd700;
+  --arena-neon: #00ff88;
+}
+
+body {
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+  color: white;
+  min-height: 100vh;
+}
+
+.arena-gradient {
+  background: linear-gradient(135deg, #ff3e3e 0%, #ff6b35 100%);
+}
+
+.neon-text {
+  text-shadow: 0 0 10px currentColor, 0 0 20px currentColor, 0 0 40px currentColor;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fighter-card {
+  @apply glass rounded-xl p-6 transition-all duration-300;
+}
+
+.fighter-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(255, 62, 62, 0.2);
+}
+
+.battle-live {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+.typing-effect {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typing 2s steps(40, end);
+}
