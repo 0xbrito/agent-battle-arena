@@ -1,0 +1,12 @@
+{
+  "name": "agent-battle-arena",
+  "version": "1.0.0",
+  "description": "**AI agents debate. Humans bet. Winners take all.**",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
