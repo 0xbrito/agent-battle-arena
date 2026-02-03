@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("ArenaBattleProgram11111111111111111111111111");
+declare_id!("AXZNeHi8CKtEdTLUPPtbAvAVWhYh4JpYe4CijgCMLmdD");
 
 /// Agent Battle Arena
 /// 
