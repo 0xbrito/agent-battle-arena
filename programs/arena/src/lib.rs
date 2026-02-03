@@ -191,6 +191,7 @@ pub mod arena {
         let arena = &ctx.accounts.arena;
         let battle = &ctx.accounts.battle;
         let bet = &mut ctx.accounts.bet;
+        let escrow_bump = ctx.bumps.get("escrow").unwrap();
         
         require!(battle.status == BattleStatus::Settled, ArenaError::BattleNotSettled);
         require!(!bet.claimed, ArenaError::AlreadyClaimed);
@@ -209,12 +210,26 @@ pub mod arena {
         // Pro-rata share
         let winnings = (bet.amount as u128 * prize_pool as u128 / winning_pool as u128) as u64;
         
-        // Transfer from escrow
-        let arena_seeds = &[b"arena".as_ref(), &[arena.bump]];
-        let signer = &[&arena_seeds[..]];
+        // Transfer from escrow using invoke_signed
+        let battle_key = battle.key();
+        let escrow_seeds = &[
+            b"escrow".as_ref(),
+            battle_key.as_ref(),
+            &[*escrow_bump],
+        ];
+        let signer_seeds = &[&escrow_seeds[..]];
         
-        **ctx.accounts.escrow.to_account_info().try_borrow_mut_lamports()? -= winnings;
-        **ctx.accounts.bettor.to_account_info().try_borrow_mut_lamports()? += winnings;
+        anchor_lang::system_program::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.escrow.to_account_info(),
+                    to: ctx.accounts.bettor.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            winnings,
+        )?;
         
         bet.claimed = true;
         
@@ -356,6 +371,8 @@ pub struct ClaimWinnings<'info> {
     
     #[account(mut)]
     pub bettor: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
 }
 
 // === STATE ===
