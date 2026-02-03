@@ -96,7 +96,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       fighters,
       count: fighters.length,
-      network: 'devnet'
+      network: 'devnet',
+      fetchedAt: new Date().toISOString(),
+      accountsFound: accounts.length
     }, {
       headers: {
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
