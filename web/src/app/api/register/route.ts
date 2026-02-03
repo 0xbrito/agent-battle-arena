@@ -14,7 +14,7 @@ const RPC_URL = 'https://api.devnet.solana.com'
 
 // Instruction discriminator for register_fighter
 // sha256("global:register_fighter")[0:8]
-const REGISTER_FIGHTER_DISCRIMINATOR = Buffer.from([214, 42, 235, 168, 102, 239, 102, 99])
+const REGISTER_FIGHTER_DISCRIMINATOR = Buffer.from([89, 189, 101, 179, 184, 140, 40, 177])
 
 function findFighterPDA(wallet: PublicKey): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
