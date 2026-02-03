@@ -109,9 +109,17 @@ npm run dev
 
 ### Build Smart Contract
 
+**Note:** Building requires Rust 1.79+ for the Cargo.lock v3 format. The included Cargo.lock pins `blake3` to 1.5.5 to avoid edition2024 compatibility issues.
+
 ```bash
-anchor build
-anchor deploy --provider.cluster devnet
+# Build the program
+cargo build-sbf
+
+# Deploy to devnet (ensure you have devnet SOL)
+solana program deploy target/deploy/arena.so --url devnet
+
+# The program is already deployed at:
+# EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx
 ```
 
 ## 🔧 API Endpoints
