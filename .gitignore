@@ -4,3 +4,6 @@ dist/
 target/
 *.so
 Cargo.lock
+dist/
+*.log
+.DS_Store

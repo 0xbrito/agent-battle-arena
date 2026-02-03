@@ -108,7 +108,7 @@ export class AgentClient {
         throw new Error(`Agent returned ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { argument: string };
       return data.argument;
     } catch (error) {
       console.error(`Failed to get argument from ${this.agent.name}:`, error);
