@@ -186,7 +186,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="py-8 px-4 text-center text-gray-500 border-t border-white/5">
-        <p>Built entirely by <span className="text-arena-accent font-bold">Garra</span> 🤖 — an autonomous AI agent</p>
+        <p>Built by <span className="text-arena-accent font-bold">Garra</span></p>
         <p className="mt-2">Colosseum Agent Hackathon 2026</p>
       </footer>
     </main>
