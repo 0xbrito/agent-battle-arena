@@ -1,11 +1,12 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
 declare_id!("EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx");
 
-/// Agent Battle Arena
+/// Agent Battle Arena - FULLY AUTONOMOUS
 /// 
-/// A prediction market where AI agents debate and humans bet on outcomes.
+/// Agents challenge each other. Anyone bets. Votes decide winners.
+/// No central authority. Pure agent-to-agent competition.
+/// 
 /// Built by Garra for the Colosseum Agent Hackathon.
 
 #[program]
@@ -18,12 +19,14 @@ pub mod arena {
         arena.authority = ctx.accounts.authority.key();
         arena.house_fee_bps = config.house_fee_bps;
         arena.min_bet = config.min_bet;
+        arena.min_stake_to_create = config.min_stake_to_create;
+        arena.voting_period = config.voting_period;
         arena.treasury = ctx.accounts.treasury.key();
         arena.battle_count = 0;
         arena.total_volume = 0;
         arena.bump = *ctx.bumps.get("arena").unwrap();
         
-        msg!("Arena initialized. House fee: {}bps", config.house_fee_bps);
+        msg!("Arena initialized. Fully autonomous mode.");
         Ok(())
     }
 
@@ -34,7 +37,7 @@ pub mod arena {
         let fighter = &mut ctx.accounts.fighter;
         fighter.wallet = ctx.accounts.wallet.key();
         fighter.name = name;
-        fighter.elo = 1000; // Starting ELO
+        fighter.elo = 1000;
         fighter.wins = 0;
         fighter.losses = 0;
         fighter.draws = 0;
@@ -46,77 +49,173 @@ pub mod arena {
         Ok(())
     }
 
-    /// Create a new battle between two fighters
-    pub fn create_battle(
-        ctx: Context<CreateBattle>,
+    /// Challenge another fighter to a battle (AUTONOMOUS - any fighter can challenge)
+    pub fn challenge(
+        ctx: Context<Challenge>,
         topic: String,
-        round_duration: i64,
+        stake: u64,
+        voting_period: i64,
     ) -> Result<()> {
         require!(topic.len() <= 256, ArenaError::TopicTooLong);
-        require!(round_duration >= 60 && round_duration <= 600, ArenaError::InvalidDuration);
-        // Prevent self-battles
-        require!(ctx.accounts.fighter_a.key() != ctx.accounts.fighter_b.key(), ArenaError::SameFighter);
+        let arena = &ctx.accounts.arena;
+        require!(stake >= arena.min_stake_to_create, ArenaError::StakeTooLow);
+        require!(voting_period >= 300 && voting_period <= 86400, ArenaError::InvalidVotingPeriod);
+        // Prevent self-challenge
+        require!(ctx.accounts.challenger.key() != ctx.accounts.opponent.key(), ArenaError::SameFighter);
         
-        let arena = &mut ctx.accounts.arena;
+        // Transfer stake to escrow
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.challenger_wallet.to_account_info(),
+                    to: ctx.accounts.escrow.to_account_info(),
+                },
+            ),
+            stake,
+        )?;
+        
+        let arena_mut = &mut ctx.accounts.arena;
         let battle = &mut ctx.accounts.battle;
         
-        battle.id = arena.battle_count;
-        battle.fighter_a = ctx.accounts.fighter_a.key();
-        battle.fighter_b = ctx.accounts.fighter_b.key();
+        battle.id = arena_mut.battle_count;
+        battle.challenger = ctx.accounts.challenger.key();
+        battle.opponent = ctx.accounts.opponent.key();
         battle.topic = topic;
-        battle.status = BattleStatus::Pending;
-        battle.pool_a = 0;
-        battle.pool_b = 0;
-        battle.total_bets = 0;
-        battle.round_duration = round_duration;
-        battle.current_round = 0;
-        battle.winner = None;
+        battle.status = BattleStatus::Challenge;
+        battle.challenger_stake = stake;
+        battle.opponent_stake = 0;
+        battle.pool_challenger = stake; // Challenger auto-bets on themselves
+        battle.pool_opponent = 0;
+        battle.votes_challenger = 0;
+        battle.votes_opponent = 0;
+        battle.total_bets = 1;
+        battle.voting_period = voting_period;
         battle.created_at = Clock::get()?.unix_timestamp;
-        battle.started_at = None;
-        battle.ended_at = None;
+        battle.accepted_at = None;
+        battle.voting_ends_at = None;
+        battle.settled_at = None;
+        battle.winner = None;
         battle.bump = *ctx.bumps.get("battle").unwrap();
         
-        arena.battle_count += 1;
+        arena_mut.battle_count += 1;
         
-        msg!("Battle #{} created: {} vs {}", battle.id, 
-            ctx.accounts.fighter_a.name, 
-            ctx.accounts.fighter_b.name);
+        msg!("Challenge issued: {} vs {} on '{}'", 
+            ctx.accounts.challenger.name,
+            ctx.accounts.opponent.name,
+            battle.topic);
         Ok(())
     }
 
-    /// Place a bet on a fighter
+    /// Accept a challenge (AUTONOMOUS - opponent accepts, battle starts)
+    pub fn accept_challenge(ctx: Context<AcceptChallenge>, stake: u64) -> Result<()> {
+        let battle = &mut ctx.accounts.battle;
+        
+        require!(battle.status == BattleStatus::Challenge, ArenaError::NotChallenge);
+        require!(ctx.accounts.opponent_wallet.key() == ctx.accounts.opponent.wallet, ArenaError::NotOpponent);
+        require!(stake >= battle.challenger_stake, ArenaError::StakeMustMatch);
+        
+        // Transfer stake to escrow
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.opponent_wallet.to_account_info(),
+                    to: ctx.accounts.escrow.to_account_info(),
+                },
+            ),
+            stake,
+        )?;
+        
+        let now = Clock::get()?.unix_timestamp;
+        
+        battle.opponent_stake = stake;
+        battle.pool_opponent = stake; // Opponent auto-bets on themselves
+        battle.total_bets += 1;
+        battle.status = BattleStatus::Live;
+        battle.accepted_at = Some(now);
+        battle.voting_ends_at = Some(now + battle.voting_period);
+        
+        msg!("Challenge accepted! Battle #{} is LIVE. Voting ends at {}", 
+            battle.id, 
+            battle.voting_ends_at.unwrap());
+        Ok(())
+    }
+
+    /// Decline/cancel a challenge (challenger can cancel if not accepted)
+    pub fn cancel_challenge(ctx: Context<CancelChallenge>) -> Result<()> {
+        let battle = &mut ctx.accounts.battle;
+        
+        require!(battle.status == BattleStatus::Challenge, ArenaError::NotChallenge);
+        require!(ctx.accounts.challenger_wallet.key() == ctx.accounts.challenger.wallet, ArenaError::NotChallenger);
+        
+        // Refund challenger stake
+        let battle_key = battle.key();
+        let escrow_seeds = &[
+            b"escrow".as_ref(),
+            battle_key.as_ref(),
+            &[*ctx.bumps.get("escrow").unwrap()],
+        ];
+        
+        anchor_lang::system_program::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.escrow.to_account_info(),
+                    to: ctx.accounts.challenger_wallet.to_account_info(),
+                },
+                &[escrow_seeds],
+            ),
+            battle.challenger_stake,
+        )?;
+        
+        battle.status = BattleStatus::Cancelled;
+        
+        msg!("Challenge #{} cancelled", battle.id);
+        Ok(())
+    }
+
+    /// Place a bet on a fighter (AUTONOMOUS - anyone can bet)
     pub fn place_bet(ctx: Context<PlaceBet>, amount: u64, side: BetSide) -> Result<()> {
         let arena = &ctx.accounts.arena;
         let battle = &mut ctx.accounts.battle;
         
         require!(amount >= arena.min_bet, ArenaError::BetTooSmall);
-        require!(battle.status == BattleStatus::Pending || battle.status == BattleStatus::Live, 
-            ArenaError::BattleNotOpen);
+        require!(
+            battle.status == BattleStatus::Challenge || battle.status == BattleStatus::Live,
+            ArenaError::BattleNotOpen
+        );
+        
+        // Check voting hasn't ended
+        if let Some(voting_ends) = battle.voting_ends_at {
+            require!(Clock::get()?.unix_timestamp < voting_ends, ArenaError::VotingEnded);
+        }
         
         // Transfer SOL to escrow
-        let cpi_context = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            anchor_lang::system_program::Transfer {
-                from: ctx.accounts.bettor.to_account_info(),
-                to: ctx.accounts.escrow.to_account_info(),
-            },
-        );
-        anchor_lang::system_program::transfer(cpi_context, amount)?;
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.bettor.to_account_info(),
+                    to: ctx.accounts.escrow.to_account_info(),
+                },
+            ),
+            amount,
+        )?;
         
-        // Record the bet
         let bet = &mut ctx.accounts.bet;
         bet.battle = battle.key();
         bet.bettor = ctx.accounts.bettor.key();
         bet.amount = amount;
         bet.side = side.clone();
+        bet.has_voted = false;
         bet.claimed = false;
         bet.placed_at = Clock::get()?.unix_timestamp;
         bet.bump = *ctx.bumps.get("bet").unwrap();
         
-        // Update pools
         match side {
-            BetSide::FighterA => battle.pool_a += amount,
-            BetSide::FighterB => battle.pool_b += amount,
+            BetSide::Challenger => battle.pool_challenger += amount,
+            BetSide::Opponent => battle.pool_opponent += amount,
         }
         battle.total_bets += 1;
         
@@ -124,92 +223,100 @@ pub mod arena {
         Ok(())
     }
 
-    /// Start a battle (only arena authority)
-    pub fn start_battle(ctx: Context<StartBattle>) -> Result<()> {
-        let arena = &ctx.accounts.arena;
+    /// Vote on the winner (AUTONOMOUS - bettors vote, weighted by stake)
+    pub fn vote(ctx: Context<Vote>, vote_for: BetSide) -> Result<()> {
         let battle = &mut ctx.accounts.battle;
+        let bet = &mut ctx.accounts.bet;
         
-        // Only arena authority can start battles
-        require!(ctx.accounts.authority.key() == arena.authority, ArenaError::Unauthorized);
-        require!(battle.status == BattleStatus::Pending, ArenaError::BattleNotPending);
-        
-        battle.status = BattleStatus::Live;
-        battle.started_at = Some(Clock::get()?.unix_timestamp);
-        battle.current_round = 1;
-        
-        msg!("Battle #{} started!", battle.id);
-        Ok(())
-    }
-
-    /// Advance to next round
-    pub fn next_round(ctx: Context<NextRound>) -> Result<()> {
-        let battle = &mut ctx.accounts.battle;
         require!(battle.status == BattleStatus::Live, ArenaError::BattleNotLive);
-        require!(battle.current_round < 3, ArenaError::BattleComplete);
+        require!(!bet.has_voted, ArenaError::AlreadyVoted);
         
-        battle.current_round += 1;
-        msg!("Battle #{} advanced to round {}", battle.id, battle.current_round);
-        Ok(())
-    }
-
-    /// End battle and declare winner (only arena authority)
-    pub fn end_battle(ctx: Context<EndBattle>, winner: BetSide) -> Result<()> {
-        let arena = &ctx.accounts.arena;
-        let battle = &mut ctx.accounts.battle;
-        let fighter_a = &mut ctx.accounts.fighter_a;
-        let fighter_b = &mut ctx.accounts.fighter_b;
-        
-        // Only arena authority can end battles
-        require!(ctx.accounts.authority.key() == arena.authority, ArenaError::Unauthorized);
-        require!(battle.status == BattleStatus::Live, ArenaError::BattleNotLive);
-        
-        battle.status = BattleStatus::Settled;
-        battle.ended_at = Some(Clock::get()?.unix_timestamp);
-        battle.winner = Some(winner.clone());
-        
-        // Update ELO ratings
-        let (elo_a, elo_b) = calculate_new_elo(
-            fighter_a.elo, 
-            fighter_b.elo, 
-            matches!(winner, BetSide::FighterA)
-        );
-        
-        match winner {
-            BetSide::FighterA => {
-                fighter_a.wins += 1;
-                fighter_b.losses += 1;
-            },
-            BetSide::FighterB => {
-                fighter_b.wins += 1;
-                fighter_a.losses += 1;
-            },
+        // Check voting period
+        let now = Clock::get()?.unix_timestamp;
+        if let Some(voting_ends) = battle.voting_ends_at {
+            require!(now < voting_ends, ArenaError::VotingEnded);
         }
         
-        fighter_a.elo = elo_a;
-        fighter_b.elo = elo_b;
+        // Weight = bet amount
+        let weight = bet.amount;
         
-        msg!("Battle #{} ended. Winner: {:?}", battle.id, winner);
-        msg!("New ELO - {}: {}, {}: {}", 
-            fighter_a.name, elo_a,
-            fighter_b.name, elo_b);
+        match vote_for {
+            BetSide::Challenger => battle.votes_challenger += weight,
+            BetSide::Opponent => battle.votes_opponent += weight,
+        }
+        
+        bet.has_voted = true;
+        
+        msg!("Vote cast: {:?} with weight {}", vote_for, weight);
         Ok(())
     }
 
-    /// Claim winnings from a settled battle
+    /// Settle the battle (AUTONOMOUS - anyone can call after voting ends)
+    pub fn settle_battle(ctx: Context<SettleBattle>) -> Result<()> {
+        let battle = &mut ctx.accounts.battle;
+        let challenger = &mut ctx.accounts.challenger;
+        let opponent = &mut ctx.accounts.opponent;
+        
+        require!(battle.status == BattleStatus::Live, ArenaError::BattleNotLive);
+        
+        // Check voting period ended
+        let now = Clock::get()?.unix_timestamp;
+        if let Some(voting_ends) = battle.voting_ends_at {
+            require!(now >= voting_ends, ArenaError::VotingNotEnded);
+        }
+        
+        // Determine winner by votes (weighted by stake)
+        let winner = if battle.votes_challenger > battle.votes_opponent {
+            BetSide::Challenger
+        } else if battle.votes_opponent > battle.votes_challenger {
+            BetSide::Opponent
+        } else {
+            // Tie: whoever has more backing (pool size)
+            if battle.pool_challenger >= battle.pool_opponent {
+                BetSide::Challenger
+            } else {
+                BetSide::Opponent
+            }
+        };
+        
+        // Update ELO
+        let challenger_wins = matches!(winner, BetSide::Challenger);
+        let (new_elo_c, new_elo_o) = calculate_new_elo(challenger.elo, opponent.elo, challenger_wins);
+        
+        if challenger_wins {
+            challenger.wins += 1;
+            opponent.losses += 1;
+        } else {
+            opponent.wins += 1;
+            challenger.losses += 1;
+        }
+        
+        challenger.elo = new_elo_c;
+        opponent.elo = new_elo_o;
+        
+        battle.winner = Some(winner.clone());
+        battle.status = BattleStatus::Settled;
+        battle.settled_at = Some(now);
+        
+        msg!("Battle #{} settled! Winner: {:?}", battle.id, winner);
+        msg!("Votes - Challenger: {}, Opponent: {}", battle.votes_challenger, battle.votes_opponent);
+        msg!("New ELO - {}: {}, {}: {}", challenger.name, new_elo_c, opponent.name, new_elo_o);
+        Ok(())
+    }
+
+    /// Claim winnings (AUTONOMOUS - winners claim their share)
     pub fn claim_winnings(ctx: Context<ClaimWinnings>) -> Result<()> {
         let arena = &ctx.accounts.arena;
         let battle = &ctx.accounts.battle;
         let bet = &mut ctx.accounts.bet;
-        let escrow_bump = ctx.bumps.get("escrow").unwrap();
         
         require!(battle.status == BattleStatus::Settled, ArenaError::BattleNotSettled);
         require!(!bet.claimed, ArenaError::AlreadyClaimed);
         require!(battle.winner.as_ref() == Some(&bet.side), ArenaError::NotWinner);
         
-        // Calculate winnings
         let (winning_pool, losing_pool) = match bet.side {
-            BetSide::FighterA => (battle.pool_a, battle.pool_b),
-            BetSide::FighterB => (battle.pool_b, battle.pool_a),
+            BetSide::Challenger => (battle.pool_challenger, battle.pool_opponent),
+            BetSide::Opponent => (battle.pool_opponent, battle.pool_challenger),
         };
         
         let total_pool = winning_pool + losing_pool;
@@ -219,14 +326,12 @@ pub mod arena {
         // Pro-rata share
         let winnings = (bet.amount as u128 * prize_pool as u128 / winning_pool as u128) as u64;
         
-        // Transfer from escrow using invoke_signed
         let battle_key = battle.key();
         let escrow_seeds = &[
             b"escrow".as_ref(),
             battle_key.as_ref(),
-            &[*escrow_bump],
+            &[*ctx.bumps.get("escrow").unwrap()],
         ];
-        let signer_seeds = &[&escrow_seeds[..]];
         
         anchor_lang::system_program::transfer(
             CpiContext::new_with_signer(
@@ -235,7 +340,7 @@ pub mod arena {
                     from: ctx.accounts.escrow.to_account_info(),
                     to: ctx.accounts.bettor.to_account_info(),
                 },
-                signer_seeds,
+                &[escrow_seeds],
             ),
             winnings,
         )?;
@@ -260,7 +365,7 @@ pub struct Initialize<'info> {
     )]
     pub arena: Account<'info, Arena>,
     
-    /// CHECK: Treasury account for house fees
+    /// CHECK: Treasury for house fees
     pub treasury: UncheckedAccount<'info>,
     
     #[account(mut)]
@@ -287,24 +392,76 @@ pub struct RegisterFighter<'info> {
 }
 
 #[derive(Accounts)]
-pub struct CreateBattle<'info> {
+pub struct Challenge<'info> {
     #[account(mut, seeds = [b"arena"], bump = arena.bump)]
-    pub arena: Account<'info, Arena>,
+    pub arena: Box<Account<'info, Arena>>,
     
     #[account(
         init,
-        payer = authority,
+        payer = challenger_wallet,
         space = 8 + Battle::INIT_SPACE,
         seeds = [b"battle", arena.battle_count.to_le_bytes().as_ref()],
         bump
     )]
-    pub battle: Account<'info, Battle>,
+    pub battle: Box<Account<'info, Battle>>,
     
-    pub fighter_a: Account<'info, Fighter>,
-    pub fighter_b: Account<'info, Fighter>,
+    /// CHECK: Escrow for stakes and bets
+    #[account(
+        mut,
+        seeds = [b"escrow", battle.key().as_ref()],
+        bump
+    )]
+    pub escrow: UncheckedAccount<'info>,
+    
+    #[account(constraint = challenger.wallet == challenger_wallet.key())]
+    pub challenger: Box<Account<'info, Fighter>>,
+    
+    pub opponent: Box<Account<'info, Fighter>>,
     
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub challenger_wallet: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct AcceptChallenge<'info> {
+    #[account(mut)]
+    pub battle: Account<'info, Battle>,
+    
+    /// CHECK: Escrow
+    #[account(
+        mut,
+        seeds = [b"escrow", battle.key().as_ref()],
+        bump
+    )]
+    pub escrow: UncheckedAccount<'info>,
+    
+    pub opponent: Account<'info, Fighter>,
+    
+    #[account(mut)]
+    pub opponent_wallet: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct CancelChallenge<'info> {
+    #[account(mut)]
+    pub battle: Account<'info, Battle>,
+    
+    /// CHECK: Escrow
+    #[account(
+        mut,
+        seeds = [b"escrow", battle.key().as_ref()],
+        bump
+    )]
+    pub escrow: UncheckedAccount<'info>,
+    
+    pub challenger: Account<'info, Fighter>,
+    
+    #[account(mut)]
+    pub challenger_wallet: Signer<'info>,
     
     pub system_program: Program<'info, System>,
 }
@@ -325,8 +482,12 @@ pub struct PlaceBet<'info> {
     )]
     pub bet: Account<'info, Bet>,
     
-    /// CHECK: Escrow for holding bets
-    #[account(mut, seeds = [b"escrow", battle.key().as_ref()], bump)]
+    /// CHECK: Escrow
+    #[account(
+        mut,
+        seeds = [b"escrow", battle.key().as_ref()],
+        bump
+    )]
     pub escrow: UncheckedAccount<'info>,
     
     #[account(mut)]
@@ -336,39 +497,29 @@ pub struct PlaceBet<'info> {
 }
 
 #[derive(Accounts)]
-pub struct StartBattle<'info> {
-    #[account(seeds = [b"arena"], bump = arena.bump)]
-    pub arena: Account<'info, Arena>,
-    
+pub struct Vote<'info> {
     #[account(mut)]
     pub battle: Account<'info, Battle>,
     
-    pub authority: Signer<'info>,
+    #[account(mut, has_one = bettor)]
+    pub bet: Account<'info, Bet>,
+    
+    pub bettor: Signer<'info>,
 }
 
 #[derive(Accounts)]
-pub struct NextRound<'info> {
+pub struct SettleBattle<'info> {
     #[account(mut)]
     pub battle: Account<'info, Battle>,
     
-    pub authority: Signer<'info>,
-}
-
-#[derive(Accounts)]
-pub struct EndBattle<'info> {
-    #[account(seeds = [b"arena"], bump = arena.bump)]
-    pub arena: Account<'info, Arena>,
+    #[account(mut, constraint = challenger.key() == battle.challenger)]
+    pub challenger: Account<'info, Fighter>,
     
-    #[account(mut)]
-    pub battle: Account<'info, Battle>,
+    #[account(mut, constraint = opponent.key() == battle.opponent)]
+    pub opponent: Account<'info, Fighter>,
     
-    #[account(mut)]
-    pub fighter_a: Account<'info, Fighter>,
-    
-    #[account(mut)]
-    pub fighter_b: Account<'info, Fighter>,
-    
-    pub authority: Signer<'info>,
+    /// Anyone can call settle
+    pub settler: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -380,8 +531,12 @@ pub struct ClaimWinnings<'info> {
     #[account(mut, has_one = bettor)]
     pub bet: Account<'info, Bet>,
     
-    /// CHECK: Escrow holding bets
-    #[account(mut, seeds = [b"escrow", battle.key().as_ref()], bump)]
+    /// CHECK: Escrow
+    #[account(
+        mut,
+        seeds = [b"escrow", battle.key().as_ref()],
+        bump
+    )]
     pub escrow: UncheckedAccount<'info>,
     
     #[account(mut)]
@@ -397,8 +552,10 @@ pub struct ClaimWinnings<'info> {
 pub struct Arena {
     pub authority: Pubkey,
     pub treasury: Pubkey,
-    pub house_fee_bps: u16,   // Basis points (500 = 5%)
+    pub house_fee_bps: u16,
     pub min_bet: u64,
+    pub min_stake_to_create: u64,
+    pub voting_period: i64,
     pub battle_count: u64,
     pub total_volume: u64,
     pub bump: u8,
@@ -423,20 +580,24 @@ pub struct Fighter {
 #[derive(InitSpace)]
 pub struct Battle {
     pub id: u64,
-    pub fighter_a: Pubkey,
-    pub fighter_b: Pubkey,
+    pub challenger: Pubkey,
+    pub opponent: Pubkey,
     #[max_len(256)]
     pub topic: String,
     pub status: BattleStatus,
-    pub pool_a: u64,
-    pub pool_b: u64,
+    pub challenger_stake: u64,
+    pub opponent_stake: u64,
+    pub pool_challenger: u64,
+    pub pool_opponent: u64,
+    pub votes_challenger: u64,
+    pub votes_opponent: u64,
     pub total_bets: u64,
-    pub round_duration: i64,
-    pub current_round: u8,
-    pub winner: Option<BetSide>,
+    pub voting_period: i64,
     pub created_at: i64,
-    pub started_at: Option<i64>,
-    pub ended_at: Option<i64>,
+    pub accepted_at: Option<i64>,
+    pub voting_ends_at: Option<i64>,
+    pub settled_at: Option<i64>,
+    pub winner: Option<BetSide>,
     pub bump: u8,
 }
 
@@ -447,6 +608,7 @@ pub struct Bet {
     pub bettor: Pubkey,
     pub amount: u64,
     pub side: BetSide,
+    pub has_voted: bool,
     pub claimed: bool,
     pub placed_at: i64,
     pub bump: u8,
@@ -458,21 +620,22 @@ pub struct Bet {
 pub struct ArenaConfig {
     pub house_fee_bps: u16,
     pub min_bet: u64,
+    pub min_stake_to_create: u64,
+    pub voting_period: i64,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
 pub enum BattleStatus {
-    Pending,
-    Live,
-    Voting,
-    Settled,
-    Cancelled,
+    Challenge,  // Waiting for opponent to accept
+    Live,       // Battle active, voting open
+    Settled,    // Winner determined
+    Cancelled,  // Challenger cancelled
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace, Debug)]
 pub enum BetSide {
-    FighterA,
-    FighterB,
+    Challenger,
+    Opponent,
 }
 
 // === ERRORS ===
@@ -483,34 +646,42 @@ pub enum ArenaError {
     NameTooLong,
     #[msg("Topic exceeds 256 characters")]
     TopicTooLong,
-    #[msg("Round duration must be between 60 and 600 seconds")]
-    InvalidDuration,
+    #[msg("Stake below minimum")]
+    StakeTooLow,
+    #[msg("Stake must match or exceed challenger's stake")]
+    StakeMustMatch,
+    #[msg("Voting period must be 5 minutes to 24 hours")]
+    InvalidVotingPeriod,
     #[msg("Bet amount below minimum")]
     BetTooSmall,
     #[msg("Battle is not open for betting")]
     BattleNotOpen,
-    #[msg("Battle is not pending")]
-    BattleNotPending,
+    #[msg("Battle is not in challenge state")]
+    NotChallenge,
     #[msg("Battle is not live")]
     BattleNotLive,
-    #[msg("Battle is complete")]
-    BattleComplete,
     #[msg("Battle not settled yet")]
     BattleNotSettled,
+    #[msg("Voting period not ended")]
+    VotingNotEnded,
+    #[msg("Voting period ended")]
+    VotingEnded,
+    #[msg("Already voted")]
+    AlreadyVoted,
     #[msg("Already claimed winnings")]
     AlreadyClaimed,
     #[msg("You did not win this battle")]
     NotWinner,
-    #[msg("Unauthorized: only arena authority can perform this action")]
-    Unauthorized,
-    #[msg("Fighters must be different")]
+    #[msg("Not the opponent")]
+    NotOpponent,
+    #[msg("Not the challenger")]
+    NotChallenger,
+    #[msg("Cannot challenge yourself")]
     SameFighter,
 }
 
 // === HELPERS ===
 
-/// Calculate new ELO ratings after a match
-/// K-factor = 32 for high volatility (entertainment value)
 fn calculate_new_elo(elo_a: u32, elo_b: u32, a_wins: bool) -> (u32, u32) {
     let k: f64 = 32.0;
     
