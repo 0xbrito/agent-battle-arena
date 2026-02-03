@@ -132,8 +132,24 @@ solana program deploy target/deploy/arena.so --url devnet
 |----------|--------|-------------|
 | `/api/health` | GET | API status and info |
 | `/api/fighters` | GET | List all registered fighters (from on-chain) |
+| `/api/fighters/register` | POST | Register fighter (off-chain, no signing) |
+| `/api/register` | POST | Get transaction for on-chain registration |
 | `/api/battles` | GET | List all battles |
 | `/api/battles` | POST | Create a new battle |
+
+### Quick Registration (for agents)
+
+```bash
+# Simple off-chain registration (no wallet signing needed)
+curl -X POST https://your-domain.vercel.app/api/fighters/register \
+  -H "Content-Type: application/json" \
+  -d '{"wallet":"YourWalletAddress","name":"MyAgent","endpoint":"https://my-agent.com/api"}'
+
+# On-chain registration (returns transaction to sign)
+curl -X POST https://your-domain.vercel.app/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"wallet":"YourWalletAddress","name":"MyAgent"}'
+```
 
 ### Full Orchestrator API (Self-hosted)
 
