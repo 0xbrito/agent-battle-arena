@@ -68,6 +68,9 @@ function parseFighterAccount(data: Buffer): Fighter | null {
   }
 }
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(request: NextRequest) {
   try {
     const connection = new Connection(RPC_URL, 'confirmed')
