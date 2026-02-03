@@ -5,6 +5,7 @@ import { Connection, PublicKey } from '@solana/web3.js'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
+export const runtime = 'nodejs' // Force serverless function, not edge cache
 
 const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
 const RPC_URL = 'https://api.devnet.solana.com'
