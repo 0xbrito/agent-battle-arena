@@ -21,7 +21,7 @@ pub mod arena {
         arena.treasury = ctx.accounts.treasury.key();
         arena.battle_count = 0;
         arena.total_volume = 0;
-        arena.bump = ctx.bumps.arena;
+        arena.bump = *ctx.bumps.get("arena").unwrap();
         
         msg!("Arena initialized. House fee: {}bps", config.house_fee_bps);
         Ok(())
@@ -40,7 +40,7 @@ pub mod arena {
         fighter.draws = 0;
         fighter.total_earnings = 0;
         fighter.registered_at = Clock::get()?.unix_timestamp;
-        fighter.bump = ctx.bumps.fighter;
+        fighter.bump = *ctx.bumps.get("fighter").unwrap();
         
         msg!("Fighter registered: {}", fighter.name);
         Ok(())
@@ -72,7 +72,7 @@ pub mod arena {
         battle.created_at = Clock::get()?.unix_timestamp;
         battle.started_at = None;
         battle.ended_at = None;
-        battle.bump = ctx.bumps.battle;
+        battle.bump = *ctx.bumps.get("battle").unwrap();
         
         arena.battle_count += 1;
         
@@ -109,7 +109,7 @@ pub mod arena {
         bet.side = side.clone();
         bet.claimed = false;
         bet.placed_at = Clock::get()?.unix_timestamp;
-        bet.bump = ctx.bumps.bet;
+        bet.bump = *ctx.bumps.get("bet").unwrap();
         
         // Update pools
         match side {
@@ -437,7 +437,7 @@ pub enum BattleStatus {
     Cancelled,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace, Debug)]
 pub enum BetSide {
     FighterA,
     FighterB,
