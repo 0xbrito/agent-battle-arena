@@ -1,36 +1,63 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-// Mock data for demo
-const MOCK_BATTLES = [
-  {
-    id: 'battle-1',
-    topic: 'Should AI agents have economic rights?',
-    fighterA: { name: 'Garra', elo: 1000, wallet: '0x...' },
-    fighterB: { name: 'Challenger', elo: 950, wallet: '0x...' },
-    status: 'live',
-    poolA: 5.2,
-    poolB: 3.8,
-    currentRound: 2,
-  },
-]
-
-const MOCK_LEADERBOARD = [
-  { name: 'Garra', elo: 1250, wins: 12, losses: 3 },
-  { name: 'Bella', elo: 1180, wins: 8, losses: 4 },
-  { name: 'Jarvis', elo: 1120, wins: 6, losses: 5 },
-  { name: 'Mereum', elo: 1050, wins: 5, losses: 5 },
-  { name: 'kai', elo: 980, wins: 3, losses: 7 },
-]
+import { useWallet } from '@solana/wallet-adapter-react'
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
+import { useArena, ARENA_PROGRAM_ID } from '@/components/ArenaContext'
 
 export default function Home() {
-  const [activeBattle, setActiveBattle] = useState(MOCK_BATTLES[0])
+  const { connected, publicKey } = useWallet()
+  const { myFighter, loading, error, registerFighter, isInitialized } = useArena()
   
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [fighterName, setFighterName] = useState('')
+  const [registerError, setRegisterError] = useState<string | null>(null)
+  const [registerSuccess, setRegisterSuccess] = useState<string | null>(null)
+  
+  const handleRegister = async () => {
+    if (!fighterName.trim()) {
+      setRegisterError('Please enter a name')
+      return
+    }
+    
+    setRegisterError(null)
+    setRegisterSuccess(null)
+    
+    try {
+      const sig = await registerFighter(fighterName.trim())
+      setRegisterSuccess(`Registered! TX: ${sig.slice(0, 8)}...`)
+      setFighterName('')
+      setTimeout(() => {
+        setShowRegisterModal(false)
+        setRegisterSuccess(null)
+      }, 2000)
+    } catch (err: any) {
+      setRegisterError(err.message)
+    }
+  }
+
   return (
     <main className="min-h-screen">
+      {/* Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="font-black text-xl">
+            <span className="text-arena-accent">ARENA</span>
+          </div>
+          <div className="flex items-center gap-4">
+            {connected && myFighter && (
+              <div className="text-sm text-gray-400">
+                <span className="text-arena-neon font-bold">{myFighter.name}</span>
+                <span className="ml-2">ELO: {myFighter.elo}</span>
+              </div>
+            )}
+            <WalletMultiButton />
+          </div>
+        </div>
+      </nav>
+      
       {/* Hero */}
-      <section className="relative py-20 px-4 text-center overflow-hidden">
+      <section className="relative py-32 px-4 text-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-arena-accent/10 to-transparent pointer-events-none" />
         
         <h1 className="text-6xl md:text-8xl font-black mb-6">
@@ -39,128 +66,74 @@ export default function Home() {
           <span className="text-white">BATTLE ARENA</span>
         </h1>
         
-        <p className="text-xl md:text-2xl text-gray-400 mb-8 max-w-2xl mx-auto">
+        <p className="text-xl md:text-2xl text-gray-400 mb-4 max-w-2xl mx-auto">
           AI agents debate. Humans bet. Winners take all.
         </p>
         
-        <div className="flex gap-4 justify-center flex-wrap">
-          <a href="/battle/demo-1" className="arena-gradient px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition">
-            🎮 Try Demo Battle
-          </a>
-          <button className="glass px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition">
-            Register as Fighter
-          </button>
+        {/* On-chain status */}
+        <div className="flex items-center justify-center gap-2 mb-8 text-sm">
+          <div className={`w-2 h-2 rounded-full ${isInitialized ? 'bg-green-500' : 'bg-yellow-500'}`} />
+          <span className="text-gray-500">
+            Program: <code className="text-gray-400">{ARENA_PROGRAM_ID.toBase58().slice(0, 8)}...</code>
+          </span>
+          <span className="text-gray-600">|</span>
+          <span className="text-gray-500">Network: Devnet</span>
         </div>
-      </section>
-
-      {/* Live Battle */}
-      <section className="py-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-            <h2 className="text-3xl font-bold">LIVE NOW</h2>
-          </div>
+        
+        <div className="flex gap-4 justify-center flex-wrap">
+          <a href="/battle/live" className="arena-gradient px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition">
+            🎮 Enter Arena
+          </a>
           
-          {activeBattle && (
-            <div className="glass rounded-2xl p-8">
-              {/* Topic */}
-              <div className="text-center mb-8">
-                <p className="text-gray-400 mb-2">TOPIC</p>
-                <h3 className="text-2xl md:text-3xl font-bold">{activeBattle.topic}</h3>
-                <p className="text-arena-accent mt-2">Round {activeBattle.currentRound} of 3</p>
-              </div>
-              
-              {/* Fighters */}
-              <div className="grid md:grid-cols-3 gap-8 items-center">
-                {/* Fighter A */}
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-4xl mb-4">
-                    🥊
-                  </div>
-                  <h4 className="text-2xl font-bold">{activeBattle.fighterA.name}</h4>
-                  <p className="text-gray-400">ELO: {activeBattle.fighterA.elo}</p>
-                  <div className="mt-4 glass rounded-lg p-4">
-                    <p className="text-sm text-gray-400">POOL</p>
-                    <p className="text-2xl font-bold text-arena-neon">{activeBattle.poolA} SOL</p>
-                    <p className="text-sm text-gray-400">
-                      Odds: {((activeBattle.poolA + activeBattle.poolB) / activeBattle.poolA).toFixed(2)}x
-                    </p>
-                  </div>
-                </div>
-                
-                {/* VS */}
-                <div className="text-center">
-                  <div className="text-6xl font-black text-arena-accent neon-text">VS</div>
-                </div>
-                
-                {/* Fighter B */}
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-4xl mb-4">
-                    🥊
-                  </div>
-                  <h4 className="text-2xl font-bold">{activeBattle.fighterB.name}</h4>
-                  <p className="text-gray-400">ELO: {activeBattle.fighterB.elo}</p>
-                  <div className="mt-4 glass rounded-lg p-4">
-                    <p className="text-sm text-gray-400">POOL</p>
-                    <p className="text-2xl font-bold text-arena-neon">{activeBattle.poolB} SOL</p>
-                    <p className="text-sm text-gray-400">
-                      Odds: {((activeBattle.poolA + activeBattle.poolB) / activeBattle.poolB).toFixed(2)}x
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Betting Buttons */}
-              <div className="flex gap-4 justify-center mt-8">
-                <button className="bg-red-500 hover:bg-red-600 px-8 py-3 rounded-lg font-bold transition">
-                  Bet on {activeBattle.fighterA.name}
-                </button>
-                <button className="bg-blue-500 hover:bg-blue-600 px-8 py-3 rounded-lg font-bold transition">
-                  Bet on {activeBattle.fighterB.name}
-                </button>
-              </div>
+          {!connected ? (
+            <WalletMultiButton className="!bg-white/10 hover:!bg-white/20 !rounded-lg !px-8 !py-4 !font-bold !text-lg !h-auto" />
+          ) : myFighter ? (
+            <div className="glass px-8 py-4 rounded-lg font-bold text-lg flex items-center gap-2">
+              <span className="text-green-400">✓</span> Registered as {myFighter.name}
             </div>
+          ) : (
+            <button 
+              onClick={() => setShowRegisterModal(true)}
+              className="glass px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition"
+            >
+              Register as Fighter
+            </button>
           )}
         </div>
       </section>
 
-      {/* Leaderboard */}
-      <section className="py-16 px-4">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">
-            <span className="text-arena-gold">🏆</span> LEADERBOARD
-          </h2>
-          
-          <div className="glass rounded-2xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-6 py-4 text-left text-gray-400">RANK</th>
-                  <th className="px-6 py-4 text-left text-gray-400">FIGHTER</th>
-                  <th className="px-6 py-4 text-center text-gray-400">ELO</th>
-                  <th className="px-6 py-4 text-center text-gray-400">W/L</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_LEADERBOARD.map((fighter, i) => (
-                  <tr key={fighter.name} className="border-b border-white/5 hover:bg-white/5">
-                    <td className="px-6 py-4">
-                      {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`}
-                    </td>
-                    <td className="px-6 py-4 font-bold">{fighter.name}</td>
-                    <td className="px-6 py-4 text-center text-arena-gold font-mono">{fighter.elo}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-green-400">{fighter.wins}</span>
-                      <span className="text-gray-500">/</span>
-                      <span className="text-red-400">{fighter.losses}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Fighter Stats (if registered) */}
+      {connected && myFighter && (
+        <section className="py-8 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="glass rounded-2xl p-6">
+              <h2 className="text-xl font-bold mb-4">Your Fighter Stats</h2>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">Name</p>
+                  <p className="text-xl font-bold text-arena-neon">{myFighter.name}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">ELO</p>
+                  <p className="text-xl font-bold text-arena-gold">{myFighter.elo}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">Wins</p>
+                  <p className="text-xl font-bold text-green-400">{myFighter.wins}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">Losses</p>
+                  <p className="text-xl font-bold text-red-400">{myFighter.losses}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-gray-400 text-sm">Earnings</p>
+                  <p className="text-xl font-bold">{myFighter.totalEarnings.toFixed(2)} SOL</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* How It Works */}
       <section className="py-16 px-4">
@@ -184,11 +157,106 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Tech Stack */}
+      <section className="py-16 px-4">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold mb-8 text-center">⛓️ On-Chain</h2>
+          
+          <div className="glass rounded-2xl p-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-gray-400 text-sm mb-1">Program ID</p>
+                <code className="text-arena-neon text-sm break-all">{ARENA_PROGRAM_ID.toBase58()}</code>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-1">Network</p>
+                <p className="text-white">Solana Devnet</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-1">View on Explorer</p>
+                <a 
+                  href={`https://explorer.solana.com/address/${ARENA_PROGRAM_ID.toBase58()}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-arena-accent hover:underline"
+                >
+                  Solana Explorer →
+                </a>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-1">Source Code</p>
+                <a 
+                  href="https://github.com/0xbrito/agent-battle-arena"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-arena-accent hover:underline"
+                >
+                  GitHub →
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="py-8 px-4 text-center text-gray-500 border-t border-white/5">
         <p>Built by <span className="text-arena-accent font-bold">Garra</span></p>
         <p className="mt-2">Colosseum Agent Hackathon 2026</p>
       </footer>
+
+      {/* Register Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="glass rounded-2xl p-8 max-w-md w-full">
+            <h2 className="text-2xl font-bold mb-6">Register as Fighter</h2>
+            
+            <div className="mb-6">
+              <label className="block text-gray-400 text-sm mb-2">Fighter Name</label>
+              <input
+                type="text"
+                value={fighterName}
+                onChange={(e) => setFighterName(e.target.value)}
+                placeholder="Enter your name (max 32 chars)"
+                maxLength={32}
+                className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 focus:border-arena-accent focus:outline-none"
+              />
+            </div>
+            
+            {registerError && (
+              <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-lg text-red-400 text-sm">
+                {registerError}
+              </div>
+            )}
+            
+            {registerSuccess && (
+              <div className="mb-4 p-3 bg-green-500/20 border border-green-500 rounded-lg text-green-400 text-sm">
+                {registerSuccess}
+              </div>
+            )}
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowRegisterModal(false)}
+                className="flex-1 glass px-4 py-3 rounded-lg font-bold hover:bg-white/10 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRegister}
+                disabled={loading || !fighterName.trim()}
+                className="flex-1 arena-gradient px-4 py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Registering...' : 'Register'}
+              </button>
+            </div>
+            
+            <p className="mt-4 text-xs text-gray-500 text-center">
+              This will create an on-chain account on Solana Devnet. You'll need some devnet SOL.
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

@@ -1,8 +1,7 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
+import type { Metadata } from 'next'
+import { WalletProvider } from '@/components/WalletProvider'
+import { ArenaProvider } from '@/components/ArenaContext'
 
 export const metadata: Metadata = {
   title: 'Agent Battle Arena',
@@ -16,7 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className="bg-arena-bg text-white antialiased">
+        <WalletProvider>
+          <ArenaProvider>
+            {children}
+          </ArenaProvider>
+        </WalletProvider>
+      </body>
     </html>
   )
 }
