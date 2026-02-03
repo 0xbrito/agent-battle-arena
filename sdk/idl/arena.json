@@ -1,0 +1,221 @@
+{
+  "version": "0.1.0",
+  "name": "arena",
+  "instructions": [
+    {
+      "name": "initialize",
+      "accounts": [
+        { "name": "arena", "isMut": true, "isSigner": false },
+        { "name": "treasury", "isMut": false, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "config", "type": { "defined": "ArenaConfig" } }
+      ]
+    },
+    {
+      "name": "registerFighter",
+      "accounts": [
+        { "name": "fighter", "isMut": true, "isSigner": false },
+        { "name": "wallet", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "name", "type": "string" }
+      ]
+    },
+    {
+      "name": "createBattle",
+      "accounts": [
+        { "name": "arena", "isMut": true, "isSigner": false },
+        { "name": "battle", "isMut": true, "isSigner": false },
+        { "name": "fighterA", "isMut": false, "isSigner": false },
+        { "name": "fighterB", "isMut": false, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "topic", "type": "string" },
+        { "name": "roundDuration", "type": "i64" }
+      ]
+    },
+    {
+      "name": "placeBet",
+      "accounts": [
+        { "name": "arena", "isMut": false, "isSigner": false },
+        { "name": "battle", "isMut": true, "isSigner": false },
+        { "name": "bet", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": true, "isSigner": false },
+        { "name": "bettor", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" },
+        { "name": "side", "type": { "defined": "BetSide" } }
+      ]
+    },
+    {
+      "name": "startBattle",
+      "accounts": [
+        { "name": "battle", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    },
+    {
+      "name": "nextRound",
+      "accounts": [
+        { "name": "battle", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    },
+    {
+      "name": "endBattle",
+      "accounts": [
+        { "name": "battle", "isMut": true, "isSigner": false },
+        { "name": "fighterA", "isMut": true, "isSigner": false },
+        { "name": "fighterB", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "winner", "type": { "defined": "BetSide" } }
+      ]
+    },
+    {
+      "name": "claimWinnings",
+      "accounts": [
+        { "name": "arena", "isMut": false, "isSigner": false },
+        { "name": "battle", "isMut": false, "isSigner": false },
+        { "name": "bet", "isMut": true, "isSigner": false },
+        { "name": "escrow", "isMut": true, "isSigner": false },
+        { "name": "bettor", "isMut": true, "isSigner": true }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Arena",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "treasury", "type": "publicKey" },
+          { "name": "houseFeeBps", "type": "u16" },
+          { "name": "minBet", "type": "u64" },
+          { "name": "battleCount", "type": "u64" },
+          { "name": "totalVolume", "type": "u64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "Fighter",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "wallet", "type": "publicKey" },
+          { "name": "name", "type": "string" },
+          { "name": "elo", "type": "u32" },
+          { "name": "wins", "type": "u32" },
+          { "name": "losses", "type": "u32" },
+          { "name": "draws", "type": "u32" },
+          { "name": "totalEarnings", "type": "u64" },
+          { "name": "registeredAt", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "Battle",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "id", "type": "u64" },
+          { "name": "fighterA", "type": "publicKey" },
+          { "name": "fighterB", "type": "publicKey" },
+          { "name": "topic", "type": "string" },
+          { "name": "status", "type": { "defined": "BattleStatus" } },
+          { "name": "poolA", "type": "u64" },
+          { "name": "poolB", "type": "u64" },
+          { "name": "totalBets", "type": "u64" },
+          { "name": "roundDuration", "type": "i64" },
+          { "name": "currentRound", "type": "u8" },
+          { "name": "winner", "type": { "option": { "defined": "BetSide" } } },
+          { "name": "createdAt", "type": "i64" },
+          { "name": "startedAt", "type": { "option": "i64" } },
+          { "name": "endedAt", "type": { "option": "i64" } },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "Bet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "battle", "type": "publicKey" },
+          { "name": "bettor", "type": "publicKey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "side", "type": { "defined": "BetSide" } },
+          { "name": "claimed", "type": "bool" },
+          { "name": "placedAt", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "ArenaConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "houseFeeBps", "type": "u16" },
+          { "name": "minBet", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "BattleStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "Pending" },
+          { "name": "Live" },
+          { "name": "Voting" },
+          { "name": "Settled" },
+          { "name": "Cancelled" }
+        ]
+      }
+    },
+    {
+      "name": "BetSide",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          { "name": "FighterA" },
+          { "name": "FighterB" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "NameTooLong", "msg": "Name exceeds 32 characters" },
+    { "code": 6001, "name": "TopicTooLong", "msg": "Topic exceeds 256 characters" },
+    { "code": 6002, "name": "InvalidDuration", "msg": "Round duration must be between 60 and 600 seconds" },
+    { "code": 6003, "name": "BetTooSmall", "msg": "Bet amount below minimum" },
+    { "code": 6004, "name": "BattleNotOpen", "msg": "Battle is not open for betting" },
+    { "code": 6005, "name": "BattleNotPending", "msg": "Battle is not pending" },
+    { "code": 6006, "name": "BattleNotLive", "msg": "Battle is not live" },
+    { "code": 6007, "name": "BattleComplete", "msg": "Battle is complete" },
+    { "code": 6008, "name": "BattleNotSettled", "msg": "Battle not settled yet" },
+    { "code": 6009, "name": "AlreadyClaimed", "msg": "Already claimed winnings" },
+    { "code": 6010, "name": "NotWinner", "msg": "You did not win this battle" }
+  ],
+  "metadata": {
+    "address": "EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx"
+  }
+}
