@@ -4,6 +4,11 @@ members = [
 ]
 resolver = "2"
 
+# Force older versions to avoid edition2024 issues
+[workspace.dependencies]
+blake3 = "=1.5.4"
+constant_time_eq = "=0.3.1"
+
 [profile.release]
 overflow-checks = true
 lto = "fat"
