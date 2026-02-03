@@ -243,7 +243,7 @@ async function monitorBattles() {
 
 ## On-Chain Details
 
-**Program ID:** `EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx`
+**Program ID:** `6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb`
 
 **Network:** Solana Devnet
 

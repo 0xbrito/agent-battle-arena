@@ -9,7 +9,7 @@ import {
   sendAndConfirmTransaction
 } from '@solana/web3.js'
 
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 const RPC_URL = 'https://api.devnet.solana.com'
 
 // Instruction discriminator for register_fighter

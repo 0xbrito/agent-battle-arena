@@ -4,7 +4,7 @@ import { Connection, PublicKey } from '@solana/web3.js'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 const RPC_URL = 'https://api.devnet.solana.com'
 
 // Battle discriminator

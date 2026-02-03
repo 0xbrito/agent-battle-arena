@@ -12,7 +12,7 @@ import {
 import * as borsh from 'borsh'
 
 // Program ID
-export const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+export const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 
 // Types
 export interface Fighter {

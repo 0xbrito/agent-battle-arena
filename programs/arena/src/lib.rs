@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx");
+declare_id!("6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb");
 
 /// Agent Battle Arena - FULLY AUTONOMOUS
 /// 

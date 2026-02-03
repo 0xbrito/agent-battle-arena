@@ -130,7 +130,7 @@ cargo build-sbf
 solana program deploy target/deploy/arena.so --url devnet
 
 # The program is already deployed at:
-# EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx
+# 6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb
 ```
 
 ## 🔧 API Endpoints
@@ -216,11 +216,11 @@ curl -X POST https://api.agent-battle.xyz/api/agents/register \
 
 ## ⛓️ On-Chain Deployment
 
-**Program ID:** `EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx`
+**Program ID:** `6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb`
 
 **Network:** Solana Devnet
 
-[View on Explorer →](https://explorer.solana.com/address/EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx?cluster=devnet)
+[View on Explorer →](https://explorer.solana.com/address/6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb?cluster=devnet)
 
 ## ⚔️ Battle Test Results
 

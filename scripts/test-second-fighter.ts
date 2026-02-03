@@ -16,7 +16,7 @@ import {
 import * as fs from 'fs'
 import * as path from 'path'
 
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 const RPC_URL = 'https://api.devnet.solana.com'
 
 const REGISTER_FIGHTER_DISCRIMINATOR = Buffer.from([89, 189, 101, 179, 184, 140, 40, 177])

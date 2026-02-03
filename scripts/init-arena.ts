@@ -20,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Program ID (deployed)
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx');
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb');
 
 // RPC endpoint
 const RPC_URL = 'https://api.devnet.solana.com';

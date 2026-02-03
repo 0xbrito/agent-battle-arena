@@ -16,7 +16,7 @@ import {
 import * as fs from 'fs'
 import * as path from 'path'
 
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 const RPC_URL = 'https://api.devnet.solana.com'
 
 // Instruction discriminators (sha256 hash of instruction name, first 8 bytes)

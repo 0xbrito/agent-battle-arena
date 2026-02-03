@@ -7,7 +7,7 @@ export const revalidate = 0
 export const fetchCache = 'force-no-store'
 export const runtime = 'nodejs' // Force serverless function, not edge cache
 
-const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const ARENA_PROGRAM_ID = new PublicKey('6fh5E6VPXzAww1mU9M84sBgtqUXDDVY9HZh47tGBFCKb')
 const RPC_URL = 'https://api.devnet.solana.com'
 
 // Fighter account discriminator: sha256("account:Fighter")[0:8]
