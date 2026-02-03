@@ -4,8 +4,8 @@ import { Connection, PublicKey } from '@solana/web3.js'
 const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
 const RPC_URL = 'https://api.devnet.solana.com'
 
-// Fighter account discriminator (first 8 bytes)
-const FIGHTER_DISCRIMINATOR = Buffer.from([124, 50, 247, 200, 181, 85, 48, 197])
+// Fighter account discriminator: sha256("account:Fighter")[0:8]
+const FIGHTER_DISCRIMINATOR = Buffer.from([24, 221, 27, 113, 60, 210, 101, 211])
 
 interface Fighter {
   wallet: string
@@ -72,12 +72,8 @@ export async function GET(request: NextRequest) {
   try {
     const connection = new Connection(RPC_URL, 'confirmed')
     
-    // Get all program accounts (fighters)
-    const accounts = await connection.getProgramAccounts(ARENA_PROGRAM_ID, {
-      filters: [
-        { dataSize: 8 + 32 + 4 + 32 + 4 + 4 + 4 + 4 + 8 + 8 + 1 } // Fighter account size (approximate)
-      ]
-    })
+    // Get all program accounts owned by our program
+    const accounts = await connection.getProgramAccounts(ARENA_PROGRAM_ID)
     
     const fighters: Fighter[] = []
     
