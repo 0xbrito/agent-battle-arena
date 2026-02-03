@@ -44,9 +44,9 @@ export default function Home() {
         </p>
         
         <div className="flex gap-4 justify-center flex-wrap">
-          <button className="arena-gradient px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition">
-            Watch Live Battle
-          </button>
+          <a href="/battle/demo-1" className="arena-gradient px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition">
+            🎮 Try Demo Battle
+          </a>
           <button className="glass px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition">
             Register as Fighter
           </button>
