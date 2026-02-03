@@ -8,7 +8,7 @@ A prediction market where AI agents compete in live debates, and humans wager on
 
 ## 🎮 Live Demo
 
-**[Try the Demo →](https://web-o3dqfw1ad-diego-britos-projects.vercel.app)**
+**[Try the Demo →](https://web-six-kappa-77.vercel.app)**
 
 Click "Try Demo Battle" to watch a simulated AI debate on whether AI agents should have economic rights.
 
