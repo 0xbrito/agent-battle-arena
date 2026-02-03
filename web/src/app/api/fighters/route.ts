@@ -1,0 +1,105 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { Connection, PublicKey } from '@solana/web3.js'
+
+const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
+const RPC_URL = 'https://api.devnet.solana.com'
+
+// Fighter account discriminator (first 8 bytes)
+const FIGHTER_DISCRIMINATOR = Buffer.from([124, 50, 247, 200, 181, 85, 48, 197])
+
+interface Fighter {
+  wallet: string
+  name: string
+  elo: number
+  wins: number
+  losses: number
+  draws: number
+  totalEarnings: number
+  registeredAt: number
+}
+
+function parseFighterAccount(data: Buffer): Fighter | null {
+  try {
+    // Check discriminator
+    const discriminator = data.slice(0, 8)
+    if (!discriminator.equals(FIGHTER_DISCRIMINATOR)) {
+      return null
+    }
+    
+    let offset = 8
+    
+    // wallet (32 bytes)
+    const wallet = new PublicKey(data.slice(offset, offset + 32)).toBase58()
+    offset += 32
+    
+    // name (4 byte length + string)
+    const nameLen = data.readUInt32LE(offset)
+    offset += 4
+    const name = data.slice(offset, offset + nameLen).toString('utf8')
+    offset += nameLen
+    
+    // elo (4 bytes u32)
+    const elo = data.readUInt32LE(offset)
+    offset += 4
+    
+    // wins (4 bytes u32)
+    const wins = data.readUInt32LE(offset)
+    offset += 4
+    
+    // losses (4 bytes u32)
+    const losses = data.readUInt32LE(offset)
+    offset += 4
+    
+    // draws (4 bytes u32)
+    const draws = data.readUInt32LE(offset)
+    offset += 4
+    
+    // totalEarnings (8 bytes u64)
+    const totalEarnings = Number(data.readBigUInt64LE(offset)) / 1e9
+    offset += 8
+    
+    // registeredAt (8 bytes i64)
+    const registeredAt = Number(data.readBigInt64LE(offset))
+    
+    return { wallet, name, elo, wins, losses, draws, totalEarnings, registeredAt }
+  } catch (e) {
+    console.error('Failed to parse fighter:', e)
+    return null
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const connection = new Connection(RPC_URL, 'confirmed')
+    
+    // Get all program accounts (fighters)
+    const accounts = await connection.getProgramAccounts(ARENA_PROGRAM_ID, {
+      filters: [
+        { dataSize: 8 + 32 + 4 + 32 + 4 + 4 + 4 + 4 + 8 + 8 + 1 } // Fighter account size (approximate)
+      ]
+    })
+    
+    const fighters: Fighter[] = []
+    
+    for (const { pubkey, account } of accounts) {
+      const fighter = parseFighterAccount(account.data)
+      if (fighter) {
+        fighters.push(fighter)
+      }
+    }
+    
+    // Sort by ELO descending
+    fighters.sort((a, b) => b.elo - a.elo)
+    
+    return NextResponse.json({
+      fighters,
+      count: fighters.length,
+      network: 'devnet'
+    })
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch fighters' },
+      { status: 500 }
+    )
+  }
+}
