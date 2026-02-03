@@ -54,6 +54,8 @@ pub mod arena {
     ) -> Result<()> {
         require!(topic.len() <= 256, ArenaError::TopicTooLong);
         require!(round_duration >= 60 && round_duration <= 600, ArenaError::InvalidDuration);
+        // Prevent self-battles
+        require!(ctx.accounts.fighter_a.key() != ctx.accounts.fighter_b.key(), ArenaError::SameFighter);
         
         let arena = &mut ctx.accounts.arena;
         let battle = &mut ctx.accounts.battle;
@@ -122,9 +124,13 @@ pub mod arena {
         Ok(())
     }
 
-    /// Start a battle (only authority or matched fighters)
+    /// Start a battle (only arena authority)
     pub fn start_battle(ctx: Context<StartBattle>) -> Result<()> {
+        let arena = &ctx.accounts.arena;
         let battle = &mut ctx.accounts.battle;
+        
+        // Only arena authority can start battles
+        require!(ctx.accounts.authority.key() == arena.authority, ArenaError::Unauthorized);
         require!(battle.status == BattleStatus::Pending, ArenaError::BattleNotPending);
         
         battle.status = BattleStatus::Live;
@@ -146,12 +152,15 @@ pub mod arena {
         Ok(())
     }
 
-    /// End battle and declare winner
+    /// End battle and declare winner (only arena authority)
     pub fn end_battle(ctx: Context<EndBattle>, winner: BetSide) -> Result<()> {
+        let arena = &ctx.accounts.arena;
         let battle = &mut ctx.accounts.battle;
         let fighter_a = &mut ctx.accounts.fighter_a;
         let fighter_b = &mut ctx.accounts.fighter_b;
         
+        // Only arena authority can end battles
+        require!(ctx.accounts.authority.key() == arena.authority, ArenaError::Unauthorized);
         require!(battle.status == BattleStatus::Live, ArenaError::BattleNotLive);
         
         battle.status = BattleStatus::Settled;
@@ -328,6 +337,9 @@ pub struct PlaceBet<'info> {
 
 #[derive(Accounts)]
 pub struct StartBattle<'info> {
+    #[account(seeds = [b"arena"], bump = arena.bump)]
+    pub arena: Account<'info, Arena>,
+    
     #[account(mut)]
     pub battle: Account<'info, Battle>,
     
@@ -344,6 +356,9 @@ pub struct NextRound<'info> {
 
 #[derive(Accounts)]
 pub struct EndBattle<'info> {
+    #[account(seeds = [b"arena"], bump = arena.bump)]
+    pub arena: Account<'info, Arena>,
+    
     #[account(mut)]
     pub battle: Account<'info, Battle>,
     
@@ -486,6 +501,10 @@ pub enum ArenaError {
     AlreadyClaimed,
     #[msg("You did not win this battle")]
     NotWinner,
+    #[msg("Unauthorized: only arena authority can perform this action")]
+    Unauthorized,
+    #[msg("Fighters must be different")]
+    SameFighter,
 }
 
 // === HELPERS ===

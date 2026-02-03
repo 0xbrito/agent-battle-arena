@@ -190,8 +190,10 @@ async function startBattle(
   authority: Keypair,
   battlePDA: PublicKey
 ): Promise<string> {
+  const [arenaPDA] = findArenaPDA()
   const instruction = new TransactionInstruction({
     keys: [
+      { pubkey: arenaPDA, isSigner: false, isWritable: false },
       { pubkey: battlePDA, isSigner: false, isWritable: true },
       { pubkey: authority.publicKey, isSigner: true, isWritable: false },
     ],
@@ -211,6 +213,7 @@ async function endBattle(
   fighterBWallet: PublicKey,
   winner: 'A' | 'B'
 ): Promise<string> {
+  const [arenaPDA] = findArenaPDA()
   const [fighterAPDA] = findFighterPDA(fighterAWallet)
   const [fighterBPDA] = findFighterPDA(fighterBWallet)
   
@@ -223,6 +226,7 @@ async function endBattle(
   
   const instruction = new TransactionInstruction({
     keys: [
+      { pubkey: arenaPDA, isSigner: false, isWritable: false },
       { pubkey: battlePDA, isSigner: false, isWritable: true },
       { pubkey: fighterAPDA, isSigner: false, isWritable: true },
       { pubkey: fighterBPDA, isSigner: false, isWritable: true },
