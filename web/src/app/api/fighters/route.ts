@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Connection, PublicKey } from '@solana/web3.js'
 
+// Force dynamic rendering - MUST be at top level
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx')
 const RPC_URL = 'https://api.devnet.solana.com'
 
@@ -67,9 +72,6 @@ function parseFighterAccount(data: Buffer): Fighter | null {
     return null
   }
 }
-
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 export async function GET(request: NextRequest) {
   try {
