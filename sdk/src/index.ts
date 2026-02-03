@@ -9,7 +9,7 @@ import {
 import { Program, AnchorProvider, Wallet, BN } from '@coral-xyz/anchor';
 
 // Program ID (update after deploy)
-export const ARENA_PROGRAM_ID = new PublicKey('ArenaBattleProgram11111111111111111111111111');
+export const ARENA_PROGRAM_ID = new PublicKey('EVqQ3yQgvG9YwZtYBfwAVjYKCTmpXsCTZnPkF1srwqDx');
 
 // === TYPES ===
 
