@@ -3,7 +3,8 @@ node_modules/
 dist/
 target/
 *.so
-Cargo.lock
+# Keep Cargo.lock to ensure reproducible builds with the version fix
+# Cargo.lock
 dist/
 *.log
 .DS_Store
